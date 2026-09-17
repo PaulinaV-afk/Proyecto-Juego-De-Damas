@@ -1,0 +1,15 @@
+C:\Users\pauli\OneDrive\Desktop\Escuela\Estructura de datos\C#\JuegoDamas\bin\Debug\net10.0\JuegoDamas.exe
+C:\Users\pauli\OneDrive\Desktop\Escuela\Estructura de datos\C#\JuegoDamas\bin\Debug\net10.0\JuegoDamas.deps.json
+C:\Users\pauli\OneDrive\Desktop\Escuela\Estructura de datos\C#\JuegoDamas\bin\Debug\net10.0\JuegoDamas.runtimeconfig.json
+C:\Users\pauli\OneDrive\Desktop\Escuela\Estructura de datos\C#\JuegoDamas\bin\Debug\net10.0\JuegoDamas.dll
+C:\Users\pauli\OneDrive\Desktop\Escuela\Estructura de datos\C#\JuegoDamas\bin\Debug\net10.0\JuegoDamas.pdb
+C:\Users\pauli\OneDrive\Desktop\Escuela\Estructura de datos\C#\JuegoDamas\obj\Debug\net10.0\JuegoDamas.GeneratedMSBuildEditorConfig.editorconfig
+C:\Users\pauli\OneDrive\Desktop\Escuela\Estructura de datos\C#\JuegoDamas\obj\Debug\net10.0\JuegoDamas.AssemblyInfoInputs.cache
+C:\Users\pauli\OneDrive\Desktop\Escuela\Estructura de datos\C#\JuegoDamas\obj\Debug\net10.0\JuegoDamas.AssemblyInfo.cs
+C:\Users\pauli\OneDrive\Desktop\Escuela\Estructura de datos\C#\JuegoDamas\obj\Debug\net10.0\JuegoDamas.csproj.CoreCompileInputs.cache
+C:\Users\pauli\OneDrive\Desktop\Escuela\Estructura de datos\C#\JuegoDamas\obj\Debug\net10.0\JuegoDamas.sourcelink.json
+C:\Users\pauli\OneDrive\Desktop\Escuela\Estructura de datos\C#\JuegoDamas\obj\Debug\net10.0\JuegoDamas.dll
+C:\Users\pauli\OneDrive\Desktop\Escuela\Estructura de datos\C#\JuegoDamas\obj\Debug\net10.0\refint\JuegoDamas.dll
+C:\Users\pauli\OneDrive\Desktop\Escuela\Estructura de datos\C#\JuegoDamas\obj\Debug\net10.0\JuegoDamas.pdb
+C:\Users\pauli\OneDrive\Desktop\Escuela\Estructura de datos\C#\JuegoDamas\obj\Debug\net10.0\JuegoDamas.genruntimeconfig.cache
+C:\Users\pauli\OneDrive\Desktop\Escuela\Estructura de datos\C#\JuegoDamas\obj\Debug\net10.0\ref\JuegoDamas.dll
