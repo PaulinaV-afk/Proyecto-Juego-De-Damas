@@ -28,7 +28,7 @@ class JuegoDeDamas
 
             Console.WriteLine($"\n--- Turno del Jugador {(turnoJugador1 ? "1 [X / Dama: D]" : "2 [O / Dama: K]")} ---");
 
-            // 1. Validar si hay capturas obligatorias para el jugador actual
+            // Validar si hay capturas obligatorias para el jugador actual
             List<Tuple<int, int>> fichasConCaptura = ObtenerFichasConCapturaObligatoria(turnoJugador1);
             bool habiaCapturas = fichasConCaptura.Count > 0;
 
@@ -36,7 +36,7 @@ class JuegoDeDamas
 
             if (habiaCapturas)
             {
-                Console.WriteLine("¡Atención! Es OBLIGATORIO comer. Selecciona una ficha con salto disponible.");
+                Console.WriteLine("Atencion!, Es obligatorio comer. Selecciona una ficha con salto disponible.");
                 PedirCoordenadas("Ingresa la Fila y Columna de la ficha a mover (ej. 5 2): ", out fOrigen, out cOrigen);
 
                 bool esFichaValida = fichasConCaptura.Exists(p => p.Item1 == fOrigen && p.Item2 == cOrigen);
@@ -52,34 +52,34 @@ class JuegoDeDamas
                 if (fOrigen == -1 || cOrigen == -1) return;
             }
 
-            // 2. Verificar que la casilla contenga una ficha propia
+            // Verificar que la casilla contenga una ficha propia
             if (!EsFichaDelJugador(fOrigen, cOrigen, turnoJugador1))
             {
                 MostrarMensaje("Error: La casilla seleccionada no contiene una de tus fichas.");
                 continue;
             }
 
-            // 3. Pedir casilla destino
+            // Pedir casilla destino
             int fDestino, cDestino;
-            PedirCoordenadas("Ingresa Fila y Columna de DESTINO (ej. 4 3): ", out fDestino, out cDestino);
+            PedirCoordenadas("Ingresa Fila y Columna de destino (ej. 4 3): ", out fDestino, out cDestino);
 
-            // 4. Intentar realizar el movimiento
+            // Intentar realizar el movimiento
             bool seCapturo;
             if (IntentarMovimiento(fOrigen, cOrigen, fDestino, cDestino, habiaCapturas, turnoJugador1, out seCapturo))
             {
                 VerificarCoronacion(fDestino, cDestino);
 
-                // 5. Captura múltiple encadenada
+                // Captura multiple encadenada
                 if (seCapturo)
                 {
                     while (TieneCapturaDesde(fDestino, cDestino, turnoJugador1))
                     {
                         Console.Clear();
                         DibujarTablero();
-                        Console.WriteLine($"\n¡Captura múltiple disponible para la ficha en [{fDestino}, {cDestino}]!");
+                        Console.WriteLine($"\nCaptura multiple disponible para la ficha en [{fDestino}, {cDestino}]!");
 
                         int fSigDest, cSigDest;
-                        PedirCoordenadas("Ingresa el SIGUIENTE DESTINO para continuar comiendo: ", out fSigDest, out cSigDest);
+                        PedirCoordenadas("Ingresa el siguiente destino para continuar comiendo: ", out fSigDest, out cSigDest);
 
                         bool nuevaCaptura;
                         if (IntentarMovimiento(fDestino, cDestino, fSigDest, cSigDest, true, turnoJugador1, out nuevaCaptura) && nuevaCaptura)
@@ -90,7 +90,7 @@ class JuegoDeDamas
                         }
                         else
                         {
-                            MostrarMensaje("Movimiento inválido. Debes realizar el salto de captura.");
+                            MostrarMensaje("Movimiento invalido. Debes realizar el salto de captura.");
                         }
                     }
                 }
@@ -100,7 +100,7 @@ class JuegoDeDamas
             }
             else
             {
-                MostrarMensaje("Movimiento inválido. Revisa las reglas de movimiento.");
+                MostrarMensaje("Movimiento invalido. Revisa las reglas de movimiento.");
             }
         }
     }
@@ -118,7 +118,7 @@ class JuegoDeDamas
                     else if (fila > 4)
                         tablero[fila, columna] = 'X'; // Jugador 1 (avanza hacia arriba, fila menores)
                     else
-                        tablero[fila, columna] = '.'; // Casilla vacía jugable
+                        tablero[fila, columna] = '.'; // Casilla vacia jugable
                 }
                 else
                 {
@@ -176,7 +176,7 @@ class JuegoDeDamas
                     break;
                 }
             }
-            Console.WriteLine("Coordenadas inválidas. Ingresa dos números entre 0 y 7 separados por espacio.");
+            Console.WriteLine("Coordenadas invalidas. Ingresa dos numeros entre 0 y 7 separados por espacio.");
         }
     }
 
@@ -205,7 +205,7 @@ class JuegoDeDamas
         int deltaF = fD - fO;
         int deltaC = Math.Abs(cD - cO);
 
-        // Validar dirección para fichas normales
+        // Validar direccion para fichas normales
         if (!esDama)
         {
             if (esJ1 && deltaF >= 0) return false;  // Jugador 1 'X' solo avanza hacia arriba (filas menores, deltaF < 0)
@@ -314,12 +314,12 @@ class JuegoDeDamas
 
         if (fichasJ1 == 0 || !movJ1)
         {
-            Console.WriteLine("\n¡JUEGO TERMINADO! Gana el Jugador 2 [O] (por eliminación o acorralamiento).");
+            Console.WriteLine("\nJUEGO TERMINADO! Gana el Jugador 2 [O] (por eliminacion o acorralamiento).");
             return true;
         }
         if (fichasJ2 == 0 || !movJ2)
         {
-            Console.WriteLine("\n¡JUEGO TERMINADO! Gana el Jugador 1 [X] (por eliminación o acorralamiento).");
+            Console.WriteLine("\nJUEGO TERMINADO! Gana el Jugador 1 [X] (por eliminacion o acorralamiento).");
             return true;
         }
 
@@ -366,13 +366,13 @@ class JuegoDeDamas
         Console.WriteLine("                          [3] SALIR                                       ");
         Console.WriteLine();
         Console.WriteLine("==========================================================================");
-        Console.Write("Selecciona una opción (1-3): ");
+        Console.Write("Selecciona una opcion (1-3): ");
 
         string opcion = Console.ReadLine() ?? string.Empty;
 
         if (opcion == "1")
         {
-            break; // Sale del menú de inicio e inicia la partida
+            break; // Sale del menu de inicio e inicia la partida
         }
         else if (opcion == "2")
         {
@@ -393,12 +393,12 @@ class JuegoDeDamas
             Console.WriteLine(" 8. Un jugador gana si destruye todas las fichas del oponente o");
             Console.WriteLine("    si lo deja sin movimientos posibles (acorralado).");
             Console.WriteLine("==========================================================================");
-            Console.WriteLine("\nPresiona cualquier tecla para volver al menú principal...");
+            Console.WriteLine("\nPresiona cualquier tecla para volver al menu principal...");
             Console.ReadKey(true);
         }
         else if (opcion == "3")
         {
-            Environment.Exit(0); // Cierra la aplicación
+            Environment.Exit(0); // Se cierra el programa
         }
     }
 }
