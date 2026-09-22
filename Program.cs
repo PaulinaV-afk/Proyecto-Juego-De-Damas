@@ -5,6 +5,37 @@ class JuegoDeDamas
 {
     static char[,] tablero = new char[8, 8];
     static bool turnoJugador1 = true; // true = Jugador 1 ('X'), false = Jugador 2 ('O')
+    
+    // Lista para almacenar el historial de movimientos
+    static List<RegistroMovimiento> historialMovimientos = new List<RegistroMovimiento>();
+    static int contadorTurnos = 1;
+
+    class RegistroMovimiento
+    {
+        public int NumeroTurno { get; }
+        public string Jugador { get; }
+        public int FilaOrigen { get; }
+        public int ColumnaOrigen { get; }
+        public int FilaDestino { get; }
+        public int ColumnaDestino { get; }
+        public string TipoAccion { get; }
+
+        public RegistroMovimiento(int turno, string jugador, int fO, int cO, int fD, int cD, string tipo)
+        {
+            NumeroTurno = turno;
+            Jugador = jugador;
+            FilaOrigen = fO;
+            ColumnaOrigen = cO;
+            FilaDestino = fD;
+            ColumnaDestino = cD;
+            TipoAccion = tipo;
+        }
+
+        public override string ToString()
+        {
+            return $"Turno {NumeroTurno:D2} | {Jugador}: [{FilaOrigen},{ColumnaOrigen}] -> [{FilaDestino},{ColumnaDestino}] ({TipoAccion})";
+        }
+    }
 
     class OpcionMOV
     {
@@ -54,7 +85,6 @@ class JuegoDeDamas
             int dc = dir.Item2;
             string nombre = dir.Item3;
 
-            //Evaluar captura (Salto de 2 casillas en diagonal)
             int fD2 = f + (df * 2);
             int cD2 = c + (dc * 2);
             int fInter = f + df;
@@ -65,11 +95,10 @@ class JuegoDeDamas
                 if (tablero[fD2, cD2] == '.' && EsEnemigo(pieza, tablero[fInter, cInter]))
                 {
                     movimientosDisponibles.Add(new OpcionMOV(fD2, cD2, nombre + " (Captura)"));
-                    continue; // Si hay captura, no se considera el movimiento simple en esa dirección
+                    continue;
                 }
             }
 
-            //Evaluar movimiento simple (1 casilla en diagonal)
             if (!soloCaptura)
             {
                 int fD1 = f + df;
@@ -108,23 +137,22 @@ class JuegoDeDamas
         Console.CursorVisible = true;
 
         MostrarReglasDelJuego();
-
         InicializarTablero();
 
         while (true)
         {
             Console.Clear();
             DibujarTablero();
+            MostrarUltimosMovimientos(3); // Muestra los últimos 3 movimientos bajo el tablero
 
-            // Verificar fin de juego al inicio del turno
             if (VerificarFinDeJuego())
             {
                 break;
             }
 
-            Console.WriteLine($"\n--- Turno del Jugador {(turnoJugador1 ? "1 [X / Dama: D]" : "2 [O / Dama: K]")} ---");
+            string nombreJugadorActual = turnoJugador1 ? "Jugador 1 [X]" : "Jugador 2 [O]";
+            Console.WriteLine($"\n--- Turno {contadorTurnos}: {nombreJugadorActual} ---");
 
-            // Validar si hay capturas obligatorias para el jugador actual
             List<Tuple<int, int>> fichasConCaptura = ObtenerFichasConCapturaObligatoria(turnoJugador1);
             bool habiaCapturas = fichasConCaptura.Count > 0;
 
@@ -148,14 +176,12 @@ class JuegoDeDamas
                 if (fOrigen == -1 || cOrigen == -1) return;
             }
 
-            // Verificar que la casilla contenga una ficha propia
             if (!EsFichaDelJugador(fOrigen, cOrigen, turnoJugador1))
             {
                 MostrarMensaje("Error: La casilla seleccionada no contiene una de tus fichas.");
                 continue;
             }
 
-            // Obtener opciones válidas para la ficha seleccionada
             List<OpcionMOV> opcionesDisponibles = OBmovimientosDiponibles(fOrigen, cOrigen, habiaCapturas, turnoJugador1);
 
             if (opcionesDisponibles.Count == 0)
@@ -164,7 +190,6 @@ class JuegoDeDamas
                 continue;
             }
 
-            // Mostrar menu de opciones
             Console.WriteLine("\nDirecciones disponibles para mover esta ficha:");
             for (int i = 0; i < opcionesDisponibles.Count; i++)
             {
@@ -177,19 +202,23 @@ class JuegoDeDamas
             int fDestino = movElegido.Fila;
             int cDestino = movElegido.Columna;
 
-            // Intentar realizar el movimiento
             bool seCapturo;
             if (IntentarMovimiento(fOrigen, cOrigen, fDestino, cDestino, habiaCapturas, turnoJugador1, out seCapturo))
             {
-                VerificarCoronacion(fDestino, cDestino);
+                bool corono = VerificarCoronacion(fDestino, cDestino);
 
-                // Captura multiple encadenada
+                // Registrar en el historial
+                string accion = seCapturo ? (corono ? "Captura y Coronacion" : "Captura") : (corono ? "Coronacion" : "Paso simple");
+                historialMovimientos.Add(new RegistroMovimiento(contadorTurnos, nombreJugadorActual, fOrigen, cOrigen, fDestino, cDestino, accion));
+
+                // Captura múltiple encadenada
                 if (seCapturo)
                 {
                     while (TieneCapturaDesde(fDestino, cDestino, turnoJugador1))
                     {
                         Console.Clear();
                         DibujarTablero();
+                        MostrarUltimosMovimientos(3);
                         Console.WriteLine($"\nCaptura multiple disponible para la ficha en [{fDestino}, {cDestino}]!");
 
                         List<OpcionMOV> opcionesCapturaMult = OBmovimientosDiponibles(fDestino, cDestino, true, turnoJugador1);
@@ -203,12 +232,17 @@ class JuegoDeDamas
                         int idxMult = PedirOpcionDireccion(opcionesCapturaMult.Count);
                         OpcionMOV movMult = opcionesCapturaMult[idxMult];
 
+                        int fOrigenMult = fDestino;
+                        int cOrigenMult = cDestino;
+
                         bool nuevaCaptura;
                         if (IntentarMovimiento(fDestino, cDestino, movMult.Fila, movMult.Columna, true, turnoJugador1, out nuevaCaptura) && nuevaCaptura)
                         {
                             fDestino = movMult.Fila;
                             cDestino = movMult.Columna;
-                            VerificarCoronacion(fDestino, cDestino);
+                            bool coronoMult = VerificarCoronacion(fDestino, cDestino);
+
+                            historialMovimientos.Add(new RegistroMovimiento(contadorTurnos, nombreJugadorActual, fOrigenMult, cOrigenMult, fDestino, cDestino, coronoMult ? "Captura Doble y Coronacion" : "Captura Doble"));
                         }
                         else
                         {
@@ -217,13 +251,30 @@ class JuegoDeDamas
                     }
                 }
 
-                // Cambiar el turno
+                // Siguiente turno
+                contadorTurnos++;
                 turnoJugador1 = !turnoJugador1;
             }
             else
             {
                 MostrarMensaje("Movimiento invalido. Revisa las reglas de movimiento.");
             }
+        }
+    }
+
+    static void MostrarUltimosMovimientos(int cantidad)
+    {
+        Console.WriteLine("\n--- ULTIMOS MOVIMIENTOS ---");
+        if (historialMovimientos.Count == 0)
+        {
+            Console.WriteLine(" (Sin movimientos aun)");
+            return;
+        }
+
+        int inicio = Math.Max(0, historialMovimientos.Count - cantidad);
+        for (int i = inicio; i < historialMovimientos.Count; i++)
+        {
+            Console.WriteLine(" " + historialMovimientos[i].ToString());
         }
     }
 
@@ -236,15 +287,15 @@ class JuegoDeDamas
                 if ((fila + columna) % 2 == 1)
                 {
                     if (fila < 3)
-                        tablero[fila, columna] = 'O'; // Jugador 2 (avanza hacia abajo, fila mayores)
+                        tablero[fila, columna] = 'O';
                     else if (fila > 4)
-                        tablero[fila, columna] = 'X'; // Jugador 1 (avanza hacia arriba, fila menores)
+                        tablero[fila, columna] = 'X';
                     else
-                        tablero[fila, columna] = '.'; // Casilla vacia jugable
+                        tablero[fila, columna] = '.';
                 }
                 else
                 {
-                    tablero[fila, columna] = ' '; // Casilla no jugable
+                    tablero[fila, columna] = ' ';
                 }
             }
         }
@@ -327,14 +378,12 @@ class JuegoDeDamas
         int deltaF = fD - fO;
         int deltaC = Math.Abs(cD - cO);
 
-        // Validar direccion para fichas normales
         if (!esDama)
         {
-            if (esJ1 && deltaF >= 0) return false;  // Jugador 1 'X' solo avanza hacia arriba (filas menores, deltaF < 0)
-            if (!esJ1 && deltaF <= 0) return false; // Jugador 2 'O' solo avanza hacia abajo (filas mayores, deltaF > 0)
+            if (esJ1 && deltaF >= 0) return false;
+            if (!esJ1 && deltaF <= 0) return false;
         }
 
-        // Movimiento simple (1 paso en diagonal)
         if (Math.Abs(deltaF) == 1 && deltaC == 1)
         {
             if (soloCaptura) return false;
@@ -343,7 +392,6 @@ class JuegoDeDamas
             return true;
         }
 
-        // Movimiento de captura (2 pasos en diagonal)
         if (Math.Abs(deltaF) == 2 && deltaC == 2)
         {
             int fInter = (fO + fD) / 2;
@@ -405,10 +453,19 @@ class JuegoDeDamas
         return false;
     }
 
-    static void VerificarCoronacion(int f, int c)
+    static bool VerificarCoronacion(int f, int c)
     {
-        if (tablero[f, c] == 'X' && f == 0) tablero[f, c] = 'D'; // Dama Jugador 1
-        if (tablero[f, c] == 'O' && f == 7) tablero[f, c] = 'K'; // Dama Jugador 2
+        if (tablero[f, c] == 'X' && f == 0)
+        {
+            tablero[f, c] = 'D';
+            return true;
+        }
+        if (tablero[f, c] == 'O' && f == 7)
+        {
+            tablero[f, c] = 'K';
+            return true;
+        }
+        return false;
     }
 
     static bool VerificarFinDeJuego()
@@ -494,7 +551,7 @@ class JuegoDeDamas
 
             if (opcion == "1")
             {
-                break; // Sale del menu de inicio e inicia la partida
+                break;
             }
             else if (opcion == "2")
             {
@@ -509,7 +566,7 @@ class JuegoDeDamas
                 Console.WriteLine(" 3. Comienza el jugador con fichas claras (Jugador 1 [X]).");
                 Console.WriteLine(" 4. Las fichas normales avanzan en diagonal y solo hacia adelante.");
                 Console.WriteLine(" 5. Si tienes la posibilidad de comer, debes hacerlo.");
-                Console.WriteLine(" 6. Si al comer puedes volver a comer, debes hacerlo .");
+                Console.WriteLine(" 6. Si al comer puedes volver a comer, debes hacerlo.");
                 Console.WriteLine(" 7. Al llegar al extremo opuesto, la ficha se convierte en Dama.");
                 Console.WriteLine("    - Las Damas pueden moverse y comer hacia adelante y hacia atras en diagonal.");
                 Console.WriteLine(" 8. Un jugador gana si destruye todas las fichas del oponente o");
@@ -520,7 +577,7 @@ class JuegoDeDamas
             }
             else if (opcion == "3")
             {
-                Environment.Exit(0); // Se cierra el programa
+                Environment.Exit(0);
             }
         }
     }
