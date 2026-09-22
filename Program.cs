@@ -6,9 +6,105 @@ class JuegoDeDamas
     static char[,] tablero = new char[8, 8];
     static bool turnoJugador1 = true; // true = Jugador 1 ('X'), false = Jugador 2 ('O')
 
+    class OpcionMOV
+    {
+        public int Fila { get; }
+        public int Columna { get; }
+        public string Descripcion { get; }
+
+        public OpcionMOV(int fila, int columna, string descripcion)
+        {
+            Fila = fila;
+            Columna = columna;
+            Descripcion = descripcion;
+        }
+    }
+
+    static List<OpcionMOV> OBmovimientosDiponibles(int f, int c, bool soloCaptura, bool esJ1)
+    {
+        List<OpcionMOV> movimientosDisponibles = new List<OpcionMOV>();
+        char pieza = tablero[f, c];
+        bool esDama = (pieza == 'D' || pieza == 'K');
+        List<Tuple<int, int, string>> direcciones = new List<Tuple<int, int, string>>();
+        
+        if (esDama)
+        {
+            direcciones.Add(new Tuple<int, int, string>(-1, -1, "Diagonal Arriba Izquierda"));
+            direcciones.Add(new Tuple<int, int, string>(-1, 1, "Diagonal Arriba Derecha"));
+            direcciones.Add(new Tuple<int, int, string>(1, -1, "Diagonal Abajo Izquierda"));
+            direcciones.Add(new Tuple<int, int, string>(1, 1, "Diagonal Abajo Derecha"));
+        }
+        else
+        {
+            if (esJ1)
+            {
+                direcciones.Add(new Tuple<int, int, string>(-1, -1, "Izquierda"));
+                direcciones.Add(new Tuple<int, int, string>(-1, 1, "Derecha"));
+            }
+            else
+            {
+                direcciones.Add(new Tuple<int, int, string>(1, -1, "Izquierda"));
+                direcciones.Add(new Tuple<int, int, string>(1, 1, "Derecha"));
+            }
+        }
+
+        foreach (var dir in direcciones)
+        {
+            int df = dir.Item1;
+            int dc = dir.Item2;
+            string nombre = dir.Item3;
+
+            //Evaluar captura (Salto de 2 casillas en diagonal)
+            int fD2 = f + (df * 2);
+            int cD2 = c + (dc * 2);
+            int fInter = f + df;
+            int cInter = c + dc;
+
+            if (fD2 >= 0 && fD2 < 8 && cD2 >= 0 && cD2 < 8)
+            {
+                if (tablero[fD2, cD2] == '.' && EsEnemigo(pieza, tablero[fInter, cInter]))
+                {
+                    movimientosDisponibles.Add(new OpcionMOV(fD2, cD2, nombre + " (Captura)"));
+                    continue; // Si hay captura, no se considera el movimiento simple en esa dirección
+                }
+            }
+
+            //Evaluar movimiento simple (1 casilla en diagonal)
+            if (!soloCaptura)
+            {
+                int fD1 = f + df;
+                int cD1 = c + dc;
+                if (fD1 >= 0 && fD1 < 8 && cD1 >= 0 && cD1 < 8)
+                {
+                    if (tablero[fD1, cD1] == '.')
+                    {
+                        movimientosDisponibles.Add(new OpcionMOV(fD1, cD1, nombre));
+                    }
+                }
+            }
+        }
+
+        return movimientosDisponibles;
+    }
+
+    static int PedirOpcionDireccion(int maxOpciones)
+    {
+        while (true)
+        {
+            Console.Write($"\nSelecciona una direccion (1-{maxOpciones}): ");
+            string entrada = Console.ReadLine() ?? string.Empty;
+
+            if (int.TryParse(entrada, out int seleccion) && seleccion >= 1 && seleccion <= maxOpciones)
+            {
+                return seleccion - 1;
+            }
+
+            Console.WriteLine($"Opcion invalida. Por favor ingresa un numero entre 1 y {maxOpciones}.");
+        }
+    }
+
     static void Main(string[] args)
     {
-
         Console.CursorVisible = true;
 
         MostrarReglasDelJuego();
@@ -59,9 +155,27 @@ class JuegoDeDamas
                 continue;
             }
 
-            // Pedir casilla destino
-            int fDestino, cDestino;
-            PedirCoordenadas("Ingresa Fila y Columna de destino (ej. 4 3): ", out fDestino, out cDestino);
+            // Obtener opciones válidas para la ficha seleccionada
+            List<OpcionMOV> opcionesDisponibles = OBmovimientosDiponibles(fOrigen, cOrigen, habiaCapturas, turnoJugador1);
+
+            if (opcionesDisponibles.Count == 0)
+            {
+                MostrarMensaje("Error: La ficha seleccionada no tiene movimientos o saltos validos hacia ninguna direccion.");
+                continue;
+            }
+
+            // Mostrar menu de opciones
+            Console.WriteLine("\nDirecciones disponibles para mover esta ficha:");
+            for (int i = 0; i < opcionesDisponibles.Count; i++)
+            {
+                Console.WriteLine($" [{i + 1}] {opcionesDisponibles[i].Descripcion} -> Casilla [{opcionesDisponibles[i].Fila}, {opcionesDisponibles[i].Columna}]");
+            }
+
+            int eleccionIndex = PedirOpcionDireccion(opcionesDisponibles.Count);
+            OpcionMOV movElegido = opcionesDisponibles[eleccionIndex];
+
+            int fDestino = movElegido.Fila;
+            int cDestino = movElegido.Columna;
 
             // Intentar realizar el movimiento
             bool seCapturo;
@@ -78,14 +192,22 @@ class JuegoDeDamas
                         DibujarTablero();
                         Console.WriteLine($"\nCaptura multiple disponible para la ficha en [{fDestino}, {cDestino}]!");
 
-                        int fSigDest, cSigDest;
-                        PedirCoordenadas("Ingresa el siguiente destino para continuar comiendo: ", out fSigDest, out cSigDest);
+                        List<OpcionMOV> opcionesCapturaMult = OBmovimientosDiponibles(fDestino, cDestino, true, turnoJugador1);
+
+                        Console.WriteLine("Direcciones disponibles para continuar comiendo:");
+                        for (int i = 0; i < opcionesCapturaMult.Count; i++)
+                        {
+                            Console.WriteLine($" [{i + 1}] {opcionesCapturaMult[i].Descripcion} -> Casilla [{opcionesCapturaMult[i].Fila}, {opcionesCapturaMult[i].Columna}]");
+                        }
+
+                        int idxMult = PedirOpcionDireccion(opcionesCapturaMult.Count);
+                        OpcionMOV movMult = opcionesCapturaMult[idxMult];
 
                         bool nuevaCaptura;
-                        if (IntentarMovimiento(fDestino, cDestino, fSigDest, cSigDest, true, turnoJugador1, out nuevaCaptura) && nuevaCaptura)
+                        if (IntentarMovimiento(fDestino, cDestino, movMult.Fila, movMult.Columna, true, turnoJugador1, out nuevaCaptura) && nuevaCaptura)
                         {
-                            fDestino = fSigDest;
-                            cDestino = cSigDest;
+                            fDestino = movMult.Fila;
+                            cDestino = movMult.Columna;
                             VerificarCoronacion(fDestino, cDestino);
                         }
                         else
@@ -354,52 +476,52 @@ class JuegoDeDamas
 
     static void MostrarReglasDelJuego()
     {  
-    while (true)
-    {
-        Console.Clear();
-        Console.WriteLine("==========================================================================");
-        Console.WriteLine("                PROYECTO ESTRUCTURA DE DATOS: JUEGO DE DAMAS              ");
-        Console.WriteLine("==========================================================================");
-        Console.WriteLine();
-        Console.WriteLine("                          [1] INICIAR PARTIDA                             ");
-        Console.WriteLine("                          [2] VER REGLAS DEL JUEGO                        ");
-        Console.WriteLine("                          [3] SALIR                                       ");
-        Console.WriteLine();
-        Console.WriteLine("==========================================================================");
-        Console.Write("Selecciona una opcion (1-3): ");
-
-        string opcion = Console.ReadLine() ?? string.Empty;
-
-        if (opcion == "1")
-        {
-            break; // Sale del menu de inicio e inicia la partida
-        }
-        else if (opcion == "2")
+        while (true)
         {
             Console.Clear();
             Console.WriteLine("==========================================================================");
-            Console.WriteLine("                            REGLAS DEL JUEGO                              ");
+            Console.WriteLine("                PROYECTO ESTRUCTURA DE DATOS: JUEGO DE DAMAS              ");
             Console.WriteLine("==========================================================================");
-            Console.WriteLine(" 1. Tablero de 8x8.");
-            Console.WriteLine(" 2. Juego de 2 jugadores:");
-            Console.WriteLine("    - Jugador 1 (Fichas claras 'X' / Damas 'D') avanza hacia ARRIBA.");
-            Console.WriteLine("    - Jugador 2 (Fichas oscuras 'O' / Damas 'K') avanza hacia ABAJO.");
-            Console.WriteLine(" 3. Comienza el jugador con fichas claras (Jugador 1 [X]).");
-            Console.WriteLine(" 4. Las fichas normales avanzan en diagonal y solo hacia adelante.");
-            Console.WriteLine(" 5. Si tienes la posibilidad de comer, debes hacerlo.");
-            Console.WriteLine(" 6. Si al comer puedes volver a comer, debes hacerlo .");
-            Console.WriteLine(" 7. Al llegar al extremo opuesto, la ficha se convierte en Dama.");
-            Console.WriteLine("    - Las Damas pueden moverse y comer hacia adelante y hacia atras en diagonal.");
-            Console.WriteLine(" 8. Un jugador gana si destruye todas las fichas del oponente o");
-            Console.WriteLine("    si lo deja sin movimientos posibles (acorralado).");
+            Console.WriteLine();
+            Console.WriteLine("                          [1] INICIAR PARTIDA                             ");
+            Console.WriteLine("                          [2] VER REGLAS DEL JUEGO                        ");
+            Console.WriteLine("                          [3] SALIR                                       ");
+            Console.WriteLine();
             Console.WriteLine("==========================================================================");
-            Console.WriteLine("\nPresiona cualquier tecla para volver al menu principal...");
-            Console.ReadKey(true);
-        }
-        else if (opcion == "3")
-        {
-            Environment.Exit(0); // Se cierra el programa
+            Console.Write("Selecciona una opcion (1-3): ");
+
+            string opcion = Console.ReadLine() ?? string.Empty;
+
+            if (opcion == "1")
+            {
+                break; // Sale del menu de inicio e inicia la partida
+            }
+            else if (opcion == "2")
+            {
+                Console.Clear();
+                Console.WriteLine("==========================================================================");
+                Console.WriteLine("                            REGLAS DEL JUEGO                              ");
+                Console.WriteLine("==========================================================================");
+                Console.WriteLine(" 1. Tablero de 8x8.");
+                Console.WriteLine(" 2. Juego de 2 jugadores:");
+                Console.WriteLine("    - Jugador 1 (Fichas claras 'X' / Damas 'D') avanza hacia ARRIBA.");
+                Console.WriteLine("    - Jugador 2 (Fichas oscuras 'O' / Damas 'K') avanza hacia ABAJO.");
+                Console.WriteLine(" 3. Comienza el jugador con fichas claras (Jugador 1 [X]).");
+                Console.WriteLine(" 4. Las fichas normales avanzan en diagonal y solo hacia adelante.");
+                Console.WriteLine(" 5. Si tienes la posibilidad de comer, debes hacerlo.");
+                Console.WriteLine(" 6. Si al comer puedes volver a comer, debes hacerlo .");
+                Console.WriteLine(" 7. Al llegar al extremo opuesto, la ficha se convierte en Dama.");
+                Console.WriteLine("    - Las Damas pueden moverse y comer hacia adelante y hacia atras en diagonal.");
+                Console.WriteLine(" 8. Un jugador gana si destruye todas las fichas del oponente o");
+                Console.WriteLine("    si lo deja sin movimientos posibles (acorralado).");
+                Console.WriteLine("==========================================================================");
+                Console.WriteLine("\nPresiona cualquier tecla para volver al menu principal...");
+                Console.ReadKey(true);
+            }
+            else if (opcion == "3")
+            {
+                Environment.Exit(0); // Se cierra el programa
+            }
         }
     }
-}
 }

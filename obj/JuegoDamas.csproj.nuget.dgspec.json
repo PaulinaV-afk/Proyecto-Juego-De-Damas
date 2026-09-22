@@ -1,17 +1,17 @@
 {
   "format": 1,
   "restore": {
-    "C:\\Users\\pauli\\OneDrive\\Desktop\\Escuela\\Estructura de datos\\C#\\JuegoDamas\\JuegoDamas.csproj": {}
+    "C:\\Users\\pauli\\OneDrive\\Desktop\\Escuela\\JuegoDamas\\JuegoDamas.csproj": {}
   },
   "projects": {
-    "C:\\Users\\pauli\\OneDrive\\Desktop\\Escuela\\Estructura de datos\\C#\\JuegoDamas\\JuegoDamas.csproj": {
+    "C:\\Users\\pauli\\OneDrive\\Desktop\\Escuela\\JuegoDamas\\JuegoDamas.csproj": {
       "version": "1.0.0",
       "restore": {
-        "projectUniqueName": "C:\\Users\\pauli\\OneDrive\\Desktop\\Escuela\\Estructura de datos\\C#\\JuegoDamas\\JuegoDamas.csproj",
+        "projectUniqueName": "C:\\Users\\pauli\\OneDrive\\Desktop\\Escuela\\JuegoDamas\\JuegoDamas.csproj",
         "projectName": "JuegoDamas",
-        "projectPath": "C:\\Users\\pauli\\OneDrive\\Desktop\\Escuela\\Estructura de datos\\C#\\JuegoDamas\\JuegoDamas.csproj",
+        "projectPath": "C:\\Users\\pauli\\OneDrive\\Desktop\\Escuela\\JuegoDamas\\JuegoDamas.csproj",
         "packagesPath": "C:\\Users\\pauli\\.nuget\\packages\\",
-        "outputPath": "C:\\Users\\pauli\\OneDrive\\Desktop\\Escuela\\Estructura de datos\\C#\\JuegoDamas\\obj\\",
+        "outputPath": "C:\\Users\\pauli\\OneDrive\\Desktop\\Escuela\\JuegoDamas\\obj\\",
         "projectStyle": "PackageReference",
         "configFilePaths": [
           "C:\\Users\\pauli\\AppData\\Roaming\\NuGet\\NuGet.Config"
