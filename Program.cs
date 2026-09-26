@@ -1,14 +1,28 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.IO;
+using System.Threading;
 
 class JuegoDeDamas
 {
+    // Representacion del tablero de 8x8 casillas
     static char[,] tablero = new char[8, 8];
-    static bool turnoJugador1 = true; // true = Jugador 1 ('X'), false = Jugador 2 ('O')
     
-    // Lista para almacenar el historial de movimientos
+    // Control de turnos: true indica el turno del jugador 1 ('X'), false el del jugador 2 ('O')
+    static bool turnoJugador1 = true;
+
+    // Lista para guardar cada movimiento hecho en la partida actual
     static List<RegistroMovimiento> historialMovimientos = new List<RegistroMovimiento>();
+    
+    // Contador global de turnos de la partida
     static int contadorTurnos = 1;
+    
+    // Reloj global por jugador en segundos (120 segundos = 2 minutos)
+    static double tiempoRestanteJ1 = 120.0;
+    static double tiempoRestanteJ2 = 120.0;
+
+    // Limite de tiempo por turno
+    static int tiempoLimiteSegundos = 30;
 
     class RegistroMovimiento
     {
@@ -116,166 +130,292 @@ class JuegoDeDamas
         return movimientosDisponibles;
     }
 
-    static int PedirOpcionDireccion(int maxOpciones)
+    // Limpia la consola completamente usando Console.Clear
+    static void LimpiarPantalla()
     {
-        while (true)
-        {
-            Console.Write($"\nSelecciona una direccion (1-{maxOpciones}): ");
-            string entrada = Console.ReadLine() ?? string.Empty;
-
-            if (int.TryParse(entrada, out int seleccion) && seleccion >= 1 && seleccion <= maxOpciones)
-            {
-                return seleccion - 1;
-            }
-
-            Console.WriteLine($"Opcion invalida. Por favor ingresa un numero entre 1 y {maxOpciones}.");
-        }
+        Console.Clear();
     }
 
     static void Main(string[] args)
     {
-        Console.CursorVisible = true;
-
-        MostrarReglasDelJuego();
-        InicializarTablero();
+        Console.CursorVisible = false;
 
         while (true)
         {
-            Console.Clear();
-            DibujarTablero();
-            MostrarUltimosMovimientos(3); // Muestra los últimos 3 movimientos bajo el tablero
+            MostrarReglasDelJuego();
 
-            if (VerificarFinDeJuego())
+            int cursorFila = 5;
+            int cursorColumna = 0;
+            bool salirAlMenu = false;
+
+            while (!salirAlMenu)
             {
-                break;
-            }
-
-            string nombreJugadorActual = turnoJugador1 ? "Jugador 1 [X]" : "Jugador 2 [O]";
-            Console.WriteLine($"\n--- Turno {contadorTurnos}: {nombreJugadorActual} ---");
-
-            List<Tuple<int, int>> fichasConCaptura = ObtenerFichasConCapturaObligatoria(turnoJugador1);
-            bool habiaCapturas = fichasConCaptura.Count > 0;
-
-            int fOrigen, cOrigen;
-
-            if (habiaCapturas)
-            {
-                Console.WriteLine("Atencion!, Es obligatorio comer. Selecciona una ficha con salto disponible.");
-                PedirCoordenadas("Ingresa la Fila y Columna de la ficha a mover (ej. 5 2): ", out fOrigen, out cOrigen);
-
-                bool esFichaValida = fichasConCaptura.Exists(p => p.Item1 == fOrigen && p.Item2 == cOrigen);
-                if (!esFichaValida)
+                if (VerificarFinDeJuego())
                 {
-                    MostrarMensaje("Error: Debes seleccionar una de las fichas que tienen captura obligatoria.");
-                    continue;
+                    break;
                 }
-            }
-            else
-            {
-                PedirCoordenadas("Ingresa Fila y Columna de la ficha a mover (ej. 5 2) o -1 para Salir: ", out fOrigen, out cOrigen);
-                if (fOrigen == -1 || cOrigen == -1) return;
-            }
 
-            if (!EsFichaDelJugador(fOrigen, cOrigen, turnoJugador1))
-            {
-                MostrarMensaje("Error: La casilla seleccionada no contiene una de tus fichas.");
-                continue;
-            }
+                string nombreJugadorActual = turnoJugador1 ? "Jugador 1 [X]" : "Jugador 2 [O]";
 
-            List<OpcionMOV> opcionesDisponibles = OBmovimientosDiponibles(fOrigen, cOrigen, habiaCapturas, turnoJugador1);
+                List<Tuple<int, int>> fichasConCaptura = ObtenerFichasConCapturaObligatoria(turnoJugador1);
+                bool habiaCapturas = fichasConCaptura.Count > 0;
 
-            if (opcionesDisponibles.Count == 0)
-            {
-                MostrarMensaje("Error: La ficha seleccionada no tiene movimientos o saltos validos hacia ninguna direccion.");
-                continue;
-            }
+                DateTime tiempoInicioTurno = DateTime.Now;
 
-            Console.WriteLine("\nDirecciones disponibles para mover esta ficha:");
-            for (int i = 0; i < opcionesDisponibles.Count; i++)
-            {
-                Console.WriteLine($" [{i + 1}] {opcionesDisponibles[i].Descripcion} -> Casilla [{opcionesDisponibles[i].Fila}, {opcionesDisponibles[i].Columna}]");
-            }
+                int fOrigen = -1, cOrigen = -1;
+                bool fichaSeleccionada = false;
+                int ultimoSegundoMostrado = -1;
+                string mensajeAlertaActual = "";
+                bool necesitaRedibujar = true;
 
-            int eleccionIndex = PedirOpcionDireccion(opcionesDisponibles.Count);
-            OpcionMOV movElegido = opcionesDisponibles[eleccionIndex];
-
-            int fDestino = movElegido.Fila;
-            int cDestino = movElegido.Columna;
-
-            bool seCapturo;
-            if (IntentarMovimiento(fOrigen, cOrigen, fDestino, cDestino, habiaCapturas, turnoJugador1, out seCapturo))
-            {
-                bool corono = VerificarCoronacion(fDestino, cDestino);
-
-                // Registrar en el historial
-                string accion = seCapturo ? (corono ? "Captura y Coronacion" : "Captura") : (corono ? "Coronacion" : "Paso simple");
-                historialMovimientos.Add(new RegistroMovimiento(contadorTurnos, nombreJugadorActual, fOrigen, cOrigen, fDestino, cDestino, accion));
-
-                // Captura múltiple encadenada
-                if (seCapturo)
+                // Bucle de Seleccion de Ficha
+                while (!fichaSeleccionada && !salirAlMenu)
                 {
-                    while (TieneCapturaDesde(fDestino, cDestino, turnoJugador1))
+                    DateTime ahora = DateTime.Now;
+                    double delta = (ahora - tiempoInicioTurno).TotalSeconds;
+                    tiempoInicioTurno = ahora;
+
+                    if (turnoJugador1)
                     {
-                        Console.Clear();
-                        DibujarTablero();
-                        MostrarUltimosMovimientos(3);
-                        Console.WriteLine($"\nCaptura multiple disponible para la ficha en [{fDestino}, {cDestino}]!");
-
-                        List<OpcionMOV> opcionesCapturaMult = OBmovimientosDiponibles(fDestino, cDestino, true, turnoJugador1);
-
-                        Console.WriteLine("Direcciones disponibles para continuar comiendo:");
-                        for (int i = 0; i < opcionesCapturaMult.Count; i++)
+                        tiempoRestanteJ1 -= delta;
+                        if (tiempoRestanteJ1 <= 0)
                         {
-                            Console.WriteLine($" [{i + 1}] {opcionesCapturaMult[i].Descripcion} -> Casilla [{opcionesCapturaMult[i].Fila}, {opcionesCapturaMult[i].Columna}]");
-                        }
-
-                        int idxMult = PedirOpcionDireccion(opcionesCapturaMult.Count);
-                        OpcionMOV movMult = opcionesCapturaMult[idxMult];
-
-                        int fOrigenMult = fDestino;
-                        int cOrigenMult = cDestino;
-
-                        bool nuevaCaptura;
-                        if (IntentarMovimiento(fDestino, cDestino, movMult.Fila, movMult.Columna, true, turnoJugador1, out nuevaCaptura) && nuevaCaptura)
-                        {
-                            fDestino = movMult.Fila;
-                            cDestino = movMult.Columna;
-                            bool coronoMult = VerificarCoronacion(fDestino, cDestino);
-
-                            historialMovimientos.Add(new RegistroMovimiento(contadorTurnos, nombreJugadorActual, fOrigenMult, cOrigenMult, fDestino, cDestino, coronoMult ? "Captura Doble y Coronacion" : "Captura Doble"));
-                        }
-                        else
-                        {
-                            MostrarMensaje("Movimiento invalido. Debes realizar el salto de captura.");
+                            tiempoRestanteJ1 = 0;
+                            break;
                         }
                     }
+                    else
+                    {
+                        tiempoRestanteJ2 -= delta;
+                        if (tiempoRestanteJ2 <= 0)
+                        {
+                            tiempoRestanteJ2 = 0;
+                            break;
+                        }
+                    }
+
+                    double tiempoActualJugador = turnoJugador1 ? tiempoRestanteJ1 : tiempoRestanteJ2;
+
+                    if (tiempoActualJugador <= 0)
+                    {
+                        break;
+                    }
+
+                    if (necesitaRedibujar || (int)tiempoActualJugador != ultimoSegundoMostrado)
+                    {
+                        ultimoSegundoMostrado = (int)tiempoActualJugador;
+                        necesitaRedibujar = false;
+
+                        LimpiarPantalla();
+                        DibujarTablero(cursorFila, cursorColumna);
+                        MostrarUltimosMovimientos(2);
+
+                        Console.WriteLine($"\n--- Turno {contadorTurnos}: {(turnoJugador1 ? "Jugador 1 [X]" : "Jugador 2 [O]")} ---");
+                        Console.WriteLine($"Tiempo Reloj J1: {(int)tiempoRestanteJ1}s | Reloj J2: {(int)tiempoRestanteJ2}s");
+                        Console.WriteLine("FLECHAS: Mover | [ENTER]: Seleccionar | [S]: Guardar | [Q]: Salir");
+
+                        if (habiaCapturas)
+                        {
+                            Console.WriteLine("Atencion: Es obligatorio comer. Selecciona una ficha con salto disponible.");
+                        }
+
+                        if (!string.IsNullOrEmpty(mensajeAlertaActual))
+                        {
+                            Console.ForegroundColor = ConsoleColor.Red;
+                            Console.WriteLine($"--> {mensajeAlertaActual}");
+                            Console.ResetColor();
+                        }
+                    }
+
+                    if (Console.KeyAvailable)
+                    {
+                        ConsoleKey key = Console.ReadKey(true).Key;
+                        mensajeAlertaActual = "";
+                        necesitaRedibujar = true;
+
+                        MoverCursor(key, ref cursorFila, ref cursorColumna);
+
+                        if (key == ConsoleKey.S)
+                        {
+                            Console.Clear();
+                            MenuGuardarPartida();
+                        }
+
+                        if (key == ConsoleKey.Q)
+                        {
+                            Console.Clear();
+                            Console.WriteLine("¿Deseas salir al menu principal? (S/N)");
+                            ConsoleKey resp = Console.ReadKey(true).Key;
+                            if (resp == ConsoleKey.S)
+                            {
+                                salirAlMenu = true;
+                                break;
+                            }
+                        }
+
+                        if (key == ConsoleKey.Enter)
+                        {
+                            if (EsFichaDelJugador(cursorFila, cursorColumna, turnoJugador1))
+                            {
+                                if (habiaCapturas && !fichasConCaptura.Exists(p => p.Item1 == cursorFila && p.Item2 == cursorColumna))
+                                {
+                                    mensajeAlertaActual = "Error: Debes seleccionar una ficha con captura obligatoria.";
+                                }
+                                else
+                                {
+                                    List<OpcionMOV> ops = OBmovimientosDiponibles(cursorFila, cursorColumna, habiaCapturas, turnoJugador1);
+                                    if (ops.Count == 0)
+                                    {
+                                        mensajeAlertaActual = "Error: La ficha seleccionada no tiene movimientos validos.";
+                                    }
+                                    else
+                                    {
+                                        fOrigen = cursorFila;
+                                        cOrigen = cursorColumna;
+                                        fichaSeleccionada = true;
+                                    }
+                                }
+                            }
+                            else
+                            {
+                                mensajeAlertaActual = "Error: La casilla seleccionada no contiene una de tus fichas.";
+                            }
+                        }
+                    }
+
+                    Thread.Sleep(50);
                 }
 
-                // Siguiente turno
-                contadorTurnos++;
-                turnoJugador1 = !turnoJugador1;
-            }
-            else
-            {
-                MostrarMensaje("Movimiento invalido. Revisa las reglas de movimiento.");
+                if (salirAlMenu) break;
+
+                // Si el tiempo del jugador se agoto, fuerza el reinicio del ciclo principal para ejecutar VerificarFinDeJuego
+                if (tiempoRestanteJ1 <= 0 || tiempoRestanteJ2 <= 0)
+                {
+                    continue;
+                }
+
+                // Seleccion de Destino
+                List<OpcionMOV> opcionesDisponibles = OBmovimientosDiponibles(fOrigen, cOrigen, habiaCapturas, turnoJugador1);
+                int opcionIndex = 0;
+                bool direccionConfirmada = false;
+                bool cancelarSeleccion = false;
+                necesitaRedibujar = true;
+
+                while (!direccionConfirmada && !cancelarSeleccion && !salirAlMenu)
+                {
+                    DateTime ahora = DateTime.Now;
+                    double delta = (ahora - tiempoInicioTurno).TotalSeconds;
+                    tiempoInicioTurno = ahora;
+
+                    if (turnoJugador1)
+                    {
+                        tiempoRestanteJ1 -= delta;
+                        if (tiempoRestanteJ1 <= 0) break;
+                    }
+                    else
+                    {
+                        tiempoRestanteJ2 -= delta;
+                        if (tiempoRestanteJ2 <= 0) break;
+                    }
+
+                    OpcionMOV movActual = opcionesDisponibles[opcionIndex];
+
+                    if (necesitaRedibujar)
+                    {
+                        necesitaRedibujar = false;
+                        LimpiarPantalla();
+                        DibujarTablero(movActual.Fila, movActual.Columna, fOrigen, cOrigen);
+                        MostrarUltimosMovimientos(2);
+
+                        Console.WriteLine("\nDirecciones disponibles para mover esta ficha:");
+                        Console.WriteLine("Usa FLECHAS (Arriba/Abajo) y ENTER para confirmar (ESC para cancelar):\n");
+
+                        for (int i = 0; i < opcionesDisponibles.Count; i++)
+                        {
+                            if (i == opcionIndex)
+                            {
+                                Console.ForegroundColor = ConsoleColor.Green;
+                                Console.WriteLine($" > [{i + 1}] {opcionesDisponibles[i].Descripcion} -> Casilla [{opcionesDisponibles[i].Fila}, {opcionesDisponibles[i].Columna}]");
+                                Console.ResetColor();
+                            }
+                            else
+                            {
+                                Console.WriteLine($"   [{i + 1}] {opcionesDisponibles[i].Descripcion} -> Casilla [{opcionesDisponibles[i].Fila}, {opcionesDisponibles[i].Columna}]");
+                            }
+                        }
+                    }
+
+                    if (Console.KeyAvailable)
+                    {
+                        ConsoleKey key = Console.ReadKey(true).Key;
+                        necesitaRedibujar = true;
+
+                        if (key == ConsoleKey.UpArrow)
+                        {
+                            opcionIndex = (opcionIndex - 1 + opcionesDisponibles.Count) % opcionesDisponibles.Count;
+                        }
+                        else if (key == ConsoleKey.DownArrow)
+                        {
+                            opcionIndex = (opcionIndex + 1) % opcionesDisponibles.Count;
+                        }
+                        else if (key == ConsoleKey.Enter)
+                        {
+                            direccionConfirmada = true;
+                        }
+                        else if (key == ConsoleKey.Escape)
+                        {
+                            cancelarSeleccion = true;
+                        }
+                    }
+
+                    Thread.Sleep(50);
+                }
+
+                // Si se agoto el tiempo durante la seleccion de destino, reinicia el ciclo principal
+                if (tiempoRestanteJ1 <= 0 || tiempoRestanteJ2 <= 0)
+                {
+                    continue;
+                }
+
+                if (cancelarSeleccion)
+                {
+                    cursorFila = fOrigen;
+                    cursorColumna = cOrigen;
+                    Console.Clear();
+                    continue;
+                }
+
+                if (direccionConfirmada)
+                {
+                    OpcionMOV movElegido = opcionesDisponibles[opcionIndex];
+                    int fDestino = movElegido.Fila;
+                    int cDestino = movElegido.Columna;
+
+                    bool seCapturo;
+                    if (IntentarMovimiento(fOrigen, cOrigen, fDestino, cDestino, habiaCapturas, turnoJugador1, out seCapturo))
+                    {
+                        bool corono = VerificarCoronacion(fDestino, cDestino);
+                        string accion = seCapturo ? (corono ? "Captura y Coronacion" : "Captura") : (corono ? "Coronacion" : "Paso simple");
+                        historialMovimientos.Add(new RegistroMovimiento(contadorTurnos, nombreJugadorActual, fOrigen, cOrigen, fDestino, cDestino, accion));
+
+                        cursorFila = fDestino;
+                        cursorColumna = cDestino;
+
+                        contadorTurnos++;
+                        turnoJugador1 = !turnoJugador1;
+                        Console.Clear();
+                    }
+                }
             }
         }
     }
 
-    static void MostrarUltimosMovimientos(int cantidad)
+    static void MoverCursor(ConsoleKey key, ref int f, ref int c)
     {
-        Console.WriteLine("\n--- ULTIMOS MOVIMIENTOS ---");
-        if (historialMovimientos.Count == 0)
-        {
-            Console.WriteLine(" (Sin movimientos aun)");
-            return;
-        }
-
-        int inicio = Math.Max(0, historialMovimientos.Count - cantidad);
-        for (int i = inicio; i < historialMovimientos.Count; i++)
-        {
-            Console.WriteLine(" " + historialMovimientos[i].ToString());
-        }
+        if (key == ConsoleKey.UpArrow && f > 0) f--;
+        else if (key == ConsoleKey.DownArrow && f < 7) f++;
+        else if (key == ConsoleKey.LeftArrow && c > 0) c--;
+        else if (key == ConsoleKey.RightArrow && c < 7) c++;
     }
 
     static void InicializarTablero()
@@ -286,12 +426,9 @@ class JuegoDeDamas
             {
                 if ((fila + columna) % 2 == 1)
                 {
-                    if (fila < 3)
-                        tablero[fila, columna] = 'O';
-                    else if (fila > 4)
-                        tablero[fila, columna] = 'X';
-                    else
-                        tablero[fila, columna] = '.';
+                    if (fila < 3) tablero[fila, columna] = 'O';
+                    else if (fila > 4) tablero[fila, columna] = 'X';
+                    else tablero[fila, columna] = '.';
                 }
                 else
                 {
@@ -301,10 +438,10 @@ class JuegoDeDamas
         }
     }
 
-    static void DibujarTablero()
+    static void DibujarTablero(int cursorFila = -1, int cursorColumna = -1, int origenFila = -1, int origenCol = -1)
     {
-        Console.WriteLine("   0   1   2   3   4   5   6   7");
-        Console.WriteLine(" ┌───┬───┬───┬───┬───┬───┬───┬───┐");
+        Console.WriteLine("   0   1   2   3   4   5   6   7   ");
+        Console.WriteLine(" ┌───┬───┬───┬───┬───┬───┬───┬───┐ ");
 
         for (int fila = 0; fila < 8; fila++)
         {
@@ -313,7 +450,17 @@ class JuegoDeDamas
             {
                 char ficha = tablero[fila, columna];
 
-                if ((fila + columna) % 2 == 1)
+                if (fila == origenFila && columna == origenCol)
+                {
+                    Console.BackgroundColor = ConsoleColor.Cyan;
+                    Console.ForegroundColor = ConsoleColor.Black;
+                }
+                else if (fila == cursorFila && columna == cursorColumna)
+                {
+                    Console.BackgroundColor = ConsoleColor.Yellow;
+                    Console.ForegroundColor = ConsoleColor.Black;
+                }
+                else if ((fila + columna) % 2 == 1)
                 {
                     Console.BackgroundColor = ConsoleColor.DarkGray;
                 }
@@ -325,32 +472,9 @@ class JuegoDeDamas
             Console.WriteLine();
 
             if (fila < 7)
-                Console.WriteLine(" ├───┼───┼───┼───┼───┼───┼───┼───┤");
+                Console.WriteLine(" ├───┼───┼───┼───┼───┼───┼───┼───┤ ");
         }
-        Console.WriteLine(" └───┴───┴───┴───┴───┴───┴───┴───┘");
-    }
-
-    static void PedirCoordenadas(string mensaje, out int fila, out int columna)
-    {
-        fila = -1;
-        columna = -1;
-        while (true)
-        {
-            Console.Write(mensaje);
-            string entrada = Console.ReadLine() ?? string.Empty;
-
-            if (entrada == "-1") return;
-
-            string[] partes = entrada.Split(new[] { ' ', ',', '-' }, StringSplitOptions.RemoveEmptyEntries);
-            if (partes.Length == 2 && int.TryParse(partes[0], out fila) && int.TryParse(partes[1], out columna))
-            {
-                if (fila >= 0 && fila < 8 && columna >= 0 && columna < 8)
-                {
-                    break;
-                }
-            }
-            Console.WriteLine("Coordenadas invalidas. Ingresa dos numeros entre 0 y 7 separados por espacio.");
-        }
+        Console.WriteLine(" └───┴───┴───┴───┴───┴───┴───┴───┘ ");
     }
 
     static bool EsFichaDelJugador(int f, int c, bool esJ1)
@@ -470,39 +594,180 @@ class JuegoDeDamas
 
     static bool VerificarFinDeJuego()
     {
-        int fichasJ1 = 0, fichasJ2 = 0;
-        bool movJ1 = false, movJ2 = false;
+        string resultado = string.Empty;
 
-        for (int f = 0; f < 8; f++)
+        // Evaluacion de victoria por tiempo agotado: Si a un jugador se le agotan sus 120 segundos del reloj global, gana el oponente por tiempo
+        if (tiempoRestanteJ1 <= 0)
         {
-            for (int c = 0; c < 8; c++)
+            resultado = "Gana el Jugador 2 [O] (Jugador 1 agoto su tiempo total de 2 minutos)";
+        }
+        else if (tiempoRestanteJ2 <= 0)
+        {
+            resultado = "Gana el Jugador 1 [X] (Jugador 2 agoto su tiempo total de 2 minutos)";
+        }
+        else
+        {
+            int fichasJ1 = 0, fichasJ2 = 0;
+            bool movJ1 = false, movJ2 = false;
+
+            for (int f = 0; f < 8; f++)
             {
-                char p = tablero[f, c];
-                if (p == 'X' || p == 'D')
+                for (int c = 0; c < 8; c++)
                 {
-                    fichasJ1++;
-                    if (TieneCapturaDesde(f, c, true) || TieneMovimientoSimple(f, c, true)) movJ1 = true;
-                }
-                else if (p == 'O' || p == 'K')
-                {
-                    fichasJ2++;
-                    if (TieneCapturaDesde(f, c, false) || TieneMovimientoSimple(f, c, false)) movJ2 = true;
+                    char p = tablero[f, c];
+                    if (p == 'X' || p == 'D')
+                    {
+                        fichasJ1++;
+                        if (TieneCapturaDesde(f, c, true) || TieneMovimientoSimple(f, c, true)) movJ1 = true;
+                    }
+                    else if (p == 'O' || p == 'K')
+                    {
+                        fichasJ2++;
+                        if (TieneCapturaDesde(f, c, false) || TieneMovimientoSimple(f, c, false)) movJ2 = true;
+                    }
                 }
             }
+
+            if (fichasJ1 == 0 || !movJ1)
+                resultado = "Gana el Jugador 2 [O] (por eliminacion o acorralamiento)";
+            else if (fichasJ2 == 0 || !movJ2)
+                resultado = "Gana el Jugador 1 [X] (por eliminacion o acorralamiento)";
         }
 
-        if (fichasJ1 == 0 || !movJ1)
+        if (!string.IsNullOrEmpty(resultado))
         {
-            Console.WriteLine("\nJUEGO TERMINADO! Gana el Jugador 2 [O] (por eliminacion o acorralamiento).");
-            return true;
-        }
-        if (fichasJ2 == 0 || !movJ2)
-        {
-            Console.WriteLine("\nJUEGO TERMINADO! Gana el Jugador 1 [X] (por eliminacion o acorralamiento).");
+            Console.Clear();
+            Console.WriteLine($"\n==================================================");
+            Console.WriteLine($"JUEGO TERMINADO: {resultado}");
+            Console.WriteLine($"==================================================");
+            Console.WriteLine("\nPresiona cualquier tecla para continuar...");
+            Console.ReadKey(true);
             return true;
         }
 
         return false;
+    }
+
+    static void MenuGuardarPartida()
+    {
+        Console.WriteLine("==========================================================================");
+        Console.WriteLine("                       GUARDAR PARTIDA EN CURSO                           ");
+        Console.WriteLine("==========================================================================");
+        Console.WriteLine("Selecciona la ranura donde deseas guardar:");
+        Console.WriteLine("  [1] Ranura 1 " + (File.Exists("partida_ranura_1.txt") ? "(Ocupada)" : "(Vacia)"));
+        Console.WriteLine("  [2] Ranura 2 " + (File.Exists("partida_ranura_2.txt") ? "(Ocupada)" : "(Vacia)"));
+        Console.WriteLine("  [3] Ranura 3 " + (File.Exists("partida_ranura_3.txt") ? "(Ocupada)" : "(Vacia)"));
+        Console.WriteLine("  [4] Cancelar");
+        Console.WriteLine("==========================================================================");
+        Console.Write("Opcion (1-4): ");
+
+        string op = Console.ReadLine() ?? "";
+        if (op == "1" || op == "2" || op == "3")
+        {
+            GuardarEstadoArchivo($"partida_ranura_{op}.txt");
+        }
+    }
+
+    static void GuardarEstadoArchivo(string nombreArchivo)
+    {
+        try
+        {
+            using (StreamWriter sw = new StreamWriter(nombreArchivo))
+            {
+                sw.WriteLine(turnoJugador1 ? "J1" : "J2");
+                sw.WriteLine(contadorTurnos);
+                sw.WriteLine(tiempoRestanteJ1);
+                sw.WriteLine(tiempoRestanteJ2);
+
+                for (int f = 0; f < 8; f++)
+                {
+                    string fila = "";
+                    for (int c = 0; c < 8; c++)
+                    {
+                        fila += tablero[f, c];
+                    }
+                    sw.WriteLine(fila);
+                }
+            }
+            MostrarMensaje($"¡Partida guardada con exito en {nombreArchivo}!");
+        }
+        catch (Exception ex)
+        {
+            MostrarMensaje("Error al guardar la partida: " + ex.Message);
+        }
+    }
+
+    static bool CargarPartidaEnCurso()
+    {
+        Console.Clear();
+        Console.WriteLine("==========================================================================");
+        Console.WriteLine("                     CARGAR PARTIDA GUARDADA                              ");
+        Console.WriteLine("==========================================================================");
+        Console.WriteLine("Selecciona la ranura a cargar:");
+        Console.WriteLine("  [1] Ranura 1 " + (File.Exists("partida_ranura_1.txt") ? "(Ocupada)" : "(Vacia)"));
+        Console.WriteLine("  [2] Ranura 2 " + (File.Exists("partida_ranura_2.txt") ? "(Ocupada)" : "(Vacia)"));
+        Console.WriteLine("  [3] Ranura 3 " + (File.Exists("partida_ranura_3.txt") ? "(Ocupada)" : "(Vacia)"));
+        Console.WriteLine("  [4] Volver al Menu");
+        Console.WriteLine("==========================================================================");
+        Console.Write("Opcion (1-4): ");
+
+        string op = Console.ReadLine() ?? "";
+        if (op == "1" || op == "2" || op == "3")
+        {
+            string archivo = $"partida_ranura_{op}.txt";
+            if (!File.Exists(archivo))
+            {
+                Console.WriteLine("\nEsa ranura esta vacia.");
+                Console.WriteLine("Presiona cualquier tecla para continuar...");
+                Console.ReadKey(true);
+                return false;
+            }
+
+            try
+            {
+                string[] lineas = File.ReadAllLines(archivo);
+
+                turnoJugador1 = (lineas[0] == "J1");
+                contadorTurnos = int.Parse(lineas[1]);
+                tiempoRestanteJ1 = double.Parse(lineas[2]);
+                tiempoRestanteJ2 = double.Parse(lineas[3]);
+
+                for (int f = 0; f < 8; f++)
+                {
+                    for (int c = 0; c < 8; c++)
+                    {
+                        tablero[f, c] = lineas[f + 4][c];
+                    }
+                }
+
+                MostrarMensaje("¡Partida cargada exitosamente!");
+                return true;
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine("Error al cargar la partida: " + ex.Message);
+                Console.ReadKey(true);
+                return false;
+            }
+        }
+
+        return false;
+    }
+
+    static void MostrarUltimosMovimientos(int cantidad)
+    {
+        Console.WriteLine("\n--- ULTIMOS MOVIMIENTOS ---");
+        if (historialMovimientos.Count == 0)
+        {
+            Console.WriteLine(" (Sin movimientos aun)");
+            return;
+        }
+
+        int inicio = Math.Max(0, historialMovimientos.Count - cantidad);
+        for (int i = inicio; i < historialMovimientos.Count; i++)
+        {
+            Console.WriteLine(" " + historialMovimientos[i].ToString());
+        }
     }
 
     static bool TieneMovimientoSimple(int f, int c, bool esJ1)
@@ -527,12 +792,11 @@ class JuegoDeDamas
     static void MostrarMensaje(string msg)
     {
         Console.WriteLine($"\n--> {msg}");
-        Console.WriteLine("Presiona cualquier tecla para continuar...");
-        Console.ReadKey(true);
+        Thread.Sleep(1200);
     }
 
     static void MostrarReglasDelJuego()
-    {  
+    {   
         while (true)
         {
             Console.Clear();
@@ -540,20 +804,36 @@ class JuegoDeDamas
             Console.WriteLine("                PROYECTO ESTRUCTURA DE DATOS: JUEGO DE DAMAS              ");
             Console.WriteLine("==========================================================================");
             Console.WriteLine();
-            Console.WriteLine("                          [1] INICIAR PARTIDA                             ");
-            Console.WriteLine("                          [2] VER REGLAS DEL JUEGO                        ");
-            Console.WriteLine("                          [3] SALIR                                       ");
+            Console.WriteLine("                          [1] INICIAR NUEVA PARTIDA                       ");
+            Console.WriteLine("                          [2] CARGAR PARTIDA GUARDADA                     ");
+            Console.WriteLine("                          [3] VER REGLAS DEL JUEGO                        ");
+            Console.WriteLine("                          [4] SALIR                                       ");
             Console.WriteLine();
             Console.WriteLine("==========================================================================");
-            Console.Write("Selecciona una opcion (1-3): ");
+            Console.Write("Selecciona una opcion (1-4): ");
 
             string opcion = Console.ReadLine() ?? string.Empty;
 
             if (opcion == "1")
             {
+                InicializarTablero();
+                historialMovimientos.Clear();
+                contadorTurnos = 1;
+                turnoJugador1 = true;
+                tiempoRestanteJ1 = 120.0;
+                tiempoRestanteJ2 = 120.0;
+                Console.Clear();
                 break;
             }
             else if (opcion == "2")
+            {
+                if (CargarPartidaEnCurso())
+                {
+                    Console.Clear();
+                    break;
+                }
+            }
+            else if (opcion == "3")
             {
                 Console.Clear();
                 Console.WriteLine("==========================================================================");
@@ -568,14 +848,15 @@ class JuegoDeDamas
                 Console.WriteLine(" 5. Si tienes la posibilidad de comer, debes hacerlo.");
                 Console.WriteLine(" 6. Si al comer puedes volver a comer, debes hacerlo.");
                 Console.WriteLine(" 7. Al llegar al extremo opuesto, la ficha se convierte en Dama.");
-                Console.WriteLine("    - Las Damas pueden moverse y comer hacia adelante y hacia atras en diagonal.");
-                Console.WriteLine(" 8. Un jugador gana si destruye todas las fichas del oponente o");
-                Console.WriteLine("    si lo deja sin movimientos posibles (acorralado).");
+                Console.WriteLine("    - Las Damas pueden moverse y comer hacia adelante y hacia atras.");
+                Console.WriteLine(" 8. Cada jugador tiene un reloj de ajedrez de 2 minutos (02:00) globales.");
+                Console.WriteLine(" 9. Un jugador gana si elimina las fichas rivales, acorrala al oponente");
+                Console.WriteLine("    o si al oponente se le agota el tiempo.");
                 Console.WriteLine("==========================================================================");
-                Console.WriteLine("\nPresiona cualquier tecla para volver al menu principal...");
+                Console.WriteLine("\nPresiona cualquier tecla para volver al menu...");
                 Console.ReadKey(true);
             }
-            else if (opcion == "3")
+            else if (opcion == "4")
             {
                 Environment.Exit(0);
             }
